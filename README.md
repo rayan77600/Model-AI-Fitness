@@ -10,6 +10,7 @@ Site web -> API FastAPI -> Ollama API -> Qwen -> JSON -> Site web
 ```
 
 Cette base ne contient pas de RAG et pas de fine-tuning LoRA. Elle est volontairement simple pour rester extensible.
+Les premieres regles metier de programmation sportive sont integrees dans `app/rules.py` et resumees dans `docs/fitness-programming-rules.md`.
 
 ## Installation locale
 

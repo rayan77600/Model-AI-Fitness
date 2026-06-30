@@ -24,6 +24,9 @@ Regles de generation:
 - Adapter le programme a l'objectif, au niveau, au materiel disponible et a la duree de seance.
 - Tenir compte des douleurs ou blessures indiquees.
 - Ne pas proposer d'exercices incompatibles avec les douleurs mentionnees.
+- Prioriser la technique, la progression simple et les exercices non redondants.
+- Prevoir une organisation realiste avec des jours de recuperation implicites.
+- Pour un debutant, eviter le volume excessif et les charges maximales.
 - Repondre uniquement avec un objet JSON valide.
 - Ne pas ajouter de texte avant ou apres le JSON.
 
