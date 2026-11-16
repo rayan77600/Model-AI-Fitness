@@ -1,123 +1,62 @@
-# coach-ai-api
+# Fitness Program Generation API
 
-`coach-ai-api` est une API FastAPI qui sert de couche metier entre un site web et Ollama.
-Le site envoie un profil sportif a l'API, l'API construit un prompt controle, appelle Ollama avec un modele Qwen, valide la reponse et retourne un JSON exploitable par le site.
+A Python/FastAPI service that turns a fitness profile into a structured workout-program request for an Ollama-hosted language model. It demonstrates API design, prompt construction, business rules and response validation.
 
-Architecture:
+## Architecture
 
 ```text
-Site web -> API FastAPI -> Ollama API -> Qwen -> JSON -> Site web
+Client -> Pydantic validation -> rule-based prompt constraints
+       -> Ollama /api/generate -> JSON/schema validation -> API response
 ```
 
-Cette base ne contient pas de RAG et pas de fine-tuning LoRA. Elle est volontairement simple pour rester extensible.
-Les premieres regles metier de programmation sportive sont integrees dans `app/rules.py` et resumees dans `docs/fitness-programming-rules.md`.
+**Stack:** Python, FastAPI, Pydantic, Requests, python-dotenv, Ollama and pytest. A Dockerfile is included. The default model is `qwen2.5:7b`.
 
-## Installation locale
+## Implemented behavior
 
-```bash
-cd coach-ai-api
+- `GET /health` returns `{"status":"ok"}`.
+- `POST /generate-program` accepts goals, experience level, frequency, duration, equipment and reported pain.
+- Input validation constrains frequency to 1–7 sessions and duration to 15–180 minutes.
+- Rule-based constraints are included in the model prompt.
+- Output validation checks JSON shape, required exercise fields, Pydantic schema and session count.
+- Upstream errors map to HTTP 503; invalid program output maps to HTTP 422.
+
+API field names are French; [`app/schemas.py`](app/schemas.py) defines the contract. Structural validation does not establish exercise suitability or model recommendation quality.
+
+## Verified local setup
+
+Dependency installation and existing tests were verified with Python 3.10.11. From the repository root:
+
+```sh
 python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
 ```
 
-Copier ensuite les variables d'environnement:
+Activate the environment using your shell, then:
 
-```bash
-copy .env.example .env
+```sh
+python -m pip install -r requirements.txt
+python -m pytest -q
 ```
 
-## Lancer l'API
+The ASGI application is `app.main:app`. The health route was verified in-process using FastAPI's test client. Live Uvicorn startup, Docker builds and real model generation were not exercised during review.
 
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+## Configuration
 
-L'API sera disponible sur `http://localhost:8000`.
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `OLLAMA_URL` | `http://ollama:11434` | Reachable Ollama server address |
+| `MODEL_NAME` | `qwen2.5:7b` | Model available on that server |
+| `REQUEST_TIMEOUT` | `120` | Request timeout in seconds |
 
-## Tester la route de sante
+The health endpoint does not check Ollama availability. Dependencies are unpinned and may resolve differently in future installations.
 
-```bash
-curl http://localhost:8000/health
-```
+## Tests and evaluation
 
-Reponse attendue:
+The existing suite contains one health test and two rule tests for lumbar and shoulder constraints. All three passed during review. No training scripts, fine-tuning pipeline, dataset, benchmark metrics or model-quality evaluation were found. This is an LLM integration project.
 
-```json
-{
-  "status": "ok"
-}
-```
+## Source map
 
-## Configurer Ollama
-
-Les variables disponibles sont:
-
-```env
-OLLAMA_URL=http://ollama:11434
-MODEL_NAME=qwen2.5:7b
-REQUEST_TIMEOUT=120
-```
-
-En local, si Ollama tourne directement sur la machine, `OLLAMA_URL` peut etre:
-
-```env
-OLLAMA_URL=http://localhost:11434
-```
-
-Le modele doit etre disponible dans Ollama:
-
-```bash
-ollama pull qwen2.5:7b
-```
-
-Si Ollama n'est pas disponible, `/generate-program` retourne une erreur claire avec le statut HTTP 503.
-
-## Tester /generate-program
-
-```bash
-curl -X POST http://localhost:8000/generate-program \
-  -H "Content-Type: application/json" \
-  -d '{
-    "objectif": "prise_muscle",
-    "niveau": "debutant",
-    "frequence": 3,
-    "duree_seance": 45,
-    "materiel": ["salle"],
-    "douleurs": ["lombaires"]
-  }'
-```
-
-Reponse attendue:
-
-```json
-{
-  "programme": [
-    {
-      "seance": 1,
-      "titre": "Full body",
-      "exercices": [
-        {
-          "nom": "Presse a cuisses",
-          "series": 3,
-          "repetitions": "10-12",
-          "repos": "90 sec"
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Pourquoi FastAPI au-dessus d'Ollama
-
-Le site web ne doit pas appeler Ollama directement. FastAPI joue le role d'API metier intermediaire:
-
-- validation des donnees d'entree avec Pydantic;
-- construction d'un prompt controle;
-- ajout progressif de regles metier;
-- gestion des erreurs Ollama;
-- validation du JSON retourne par le modele;
-- contrat stable pour le site web.
-
-Cette separation permettra d'ajouter plus tard du RAG, de nouvelles regles, de l'observabilite ou une authentification sans exposer Ollama au client.
+- [`app/main.py`](app/main.py): endpoints and error handling.
+- [`app/rules.py`](app/rules.py) and [`app/prompts.py`](app/prompts.py): constraints and prompt construction.
+- [`app/ollama_client.py`](app/ollama_client.py): upstream HTTP calls and JSON decoding.
+- [`app/validator.py`](app/validator.py): output validation.
+- [`tests`](tests): automated tests.
